@@ -47,6 +47,7 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(size_t itemsize, int print_counter, int index);
+      static sptr make(size_t itemsize, int print_counter, double* shared_pointer);
     };
 
   } // namespace router

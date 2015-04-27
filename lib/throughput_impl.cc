@@ -50,7 +50,24 @@ namespace gr {
             return gnuradio::get_initial_sptr
             (new throughput_impl(itemsize, print_counter, index));
         }
-        
+	
+	/*!
+	 *  This is a public constructor for the throughput block to be used with an arbiter block.
+	 *  Unlike the standard constructor, we pass a pointer to the throughput value and no index.
+	 *  
+	 *  @param itemsize The size (in bytes) of the data being measured
+	 *  @param print_counter The number of work() calls between prints of throughput value
+	 *  @param shared_throughput Points to double storing desired throughput, shared with arbiter and throttle blocks
+	 *  @return A shared pointer to the throughput block
+	 */
+	
+	throughput::sptr
+	throughput::make(size_t itemsize, int print_counter, double* shared_throughput)
+	{
+	    return gnuradio::get_initial_sptr
+	    (new throughput_impl(itemsize, print_counter, shared_throughput));
+	}
+
         /*!
          *  This is the private constructor for the throughput block.
          *
@@ -68,8 +85,32 @@ namespace gr {
             d_total_samples = 0;
             last_throughput = 0;
             running_count = 0;
+	    hasPointer = false;
         }
         
+	/*!
+	 *  This is a private constructor for the throughput block
+	 *  Unlike the standard constructor, we pass a pointer to the throughput value and no index.
+	 *
+	 *  @param itemsize The size (in bytes) of the data being measured
+	 *  @param print_counter The number of work() calls between prints of throughput value
+	 *  @param shared_throughput Points to double storing desired throughput, shared with arbiter and throttle blocks
+	 */
+
+	throughput_impl::throughput_impl(size_t itemsize, int print_counter, double* shared_throughput)
+	: gr::sync_block("throughput",
+			gr::io_signature::make(1, 1, itemsize),
+			gr::io_signature::make(1, 1, itemsize)), 
+			d_itemsize(itemsize), d_print_counter(print_counter), d_shared_throughput(shared_throughput)
+	{
+	    d_start = boost::get_system_time();
+	    d_total_samples = 0;
+	    d_index = 0;
+	    last_throughput = 0;
+	    running_count = 0;
+	    hasPointer = true;
+	}
+
         /**
          *  The destructor for the throughput block.
          */
@@ -107,22 +148,33 @@ namespace gr {
             d_total_samples += (double)noutput_items;
             
             running_count++;
-            
+           
+/*
+	    if(hasPointer){
+		    double margin_percent = 0.001;
+		    throughput_margin = last_throughput * margin_percent; // set margin to 5% of last throughput
+                    bool change = *d_shared_throughput - last_throughput > throughput_margin; // true if big enough change
+        
+	            if(change) {
+                        last_throughput = *d_shared_throughput;
+	            }
+	    }
+*/
+ 
             // Print out the throughput every d_print_counter times work() is called
             if((int)running_count % d_print_counter == 0){
-                for(int i = 0; i < d_index; i++)
-                    std::cout << '\t';
-                
-                
-                // check if throughput has changed by enough; if so update
-
-                std::cout << d_index << ". " << throughput << std::endl;
-            }
-			
-            std::memcpy(out, in, noutput_items * d_itemsize);
-            
-            return noutput_items;
-        }
-        
+                if(hasPointer) {
+			*d_shared_throughput = throughput;
+		}
+		else {
+	                for(int i = 0; i < d_index; i++)
+                        	std::cout << '\t';
+			std::cout << d_index << ". " << throughput << std::endl;
+		}
+            }		
+	
+           std::memcpy(out, in, noutput_items * d_itemsize);
+           return noutput_items;
+	}     
     } /* namespace router */
 } /* namespace gr */
