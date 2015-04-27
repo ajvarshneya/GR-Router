@@ -38,14 +38,14 @@ namespace gr {
             double running_count;
             
             double* d_shared_throughput; 
-            double throughput_margin; 
+            double d_throughput_margin; 
 	    bool hasPointer;
 
             int d_index;            
 
         public:
             throughput_impl(size_t itemsize, int print_counter, int index);
-            throughput_impl(size_t itemsize, int print_counter, double* shared_throughput);
+            throughput_impl(size_t itemsize, int print_counter, double throughput_margin, double* shared_throughput);
             ~throughput_impl();
             
             int work(int noutput_items,

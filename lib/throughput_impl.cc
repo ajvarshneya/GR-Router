@@ -57,15 +57,16 @@ namespace gr {
 	 *  
 	 *  @param itemsize The size (in bytes) of the data being measured
 	 *  @param print_counter The number of work() calls between prints of throughput value
+	 *  @param throughput_margin Specifies the percentage change required to update shared_throughput value
 	 *  @param shared_throughput Points to double storing desired throughput, shared with arbiter and throttle blocks
 	 *  @return A shared pointer to the throughput block
 	 */
 	
 	throughput::sptr
-	throughput::make(size_t itemsize, int print_counter, double* shared_throughput)
+	throughput::make(size_t itemsize, int print_counter, double throughput_margin, double* shared_throughput)
 	{
 	    return gnuradio::get_initial_sptr
-	    (new throughput_impl(itemsize, print_counter, shared_throughput));
+	    (new throughput_impl(itemsize, print_counter, throughput_margin, shared_throughput));
 	}
 
         /*!
@@ -94,14 +95,18 @@ namespace gr {
 	 *
 	 *  @param itemsize The size (in bytes) of the data being measured
 	 *  @param print_counter The number of work() calls between prints of throughput value
+	 *  @param throughput_margin Specifies the percentage change required to update shared_throughput value
 	 *  @param shared_throughput Points to double storing desired throughput, shared with arbiter and throttle blocks
 	 */
 
-	throughput_impl::throughput_impl(size_t itemsize, int print_counter, double* shared_throughput)
+	throughput_impl::throughput_impl(size_t itemsize, int print_counter, double throughput_margin, double* shared_throughput)
 	: gr::sync_block("throughput",
 			gr::io_signature::make(1, 1, itemsize),
 			gr::io_signature::make(1, 1, itemsize)), 
-			d_itemsize(itemsize), d_print_counter(print_counter), d_shared_throughput(shared_throughput)
+			d_itemsize(itemsize), 
+			d_print_counter(print_counter), 
+			d_throughput_margin(throughput_margin), 
+			d_shared_throughput(shared_throughput)
 	{
 	    d_start = boost::get_system_time();
 	    d_total_samples = 0;
@@ -149,22 +154,13 @@ namespace gr {
             
             running_count++;
            
-/*
-	    if(hasPointer){
-		    double margin_percent = 0.001;
-		    throughput_margin = last_throughput * margin_percent; // set margin to 5% of last throughput
-                    bool change = *d_shared_throughput - last_throughput > throughput_margin; // true if big enough change
-        
-	            if(change) {
-                        last_throughput = *d_shared_throughput;
-	            }
-	    }
-*/
- 
-            // Print out the throughput every d_print_counter times work() is called
+            // Updated throughput pointer if its difference from true value exceeds margin % (print if no pointer) 
             if((int)running_count % d_print_counter == 0){
                 if(hasPointer) {
-			*d_shared_throughput = throughput;
+			if(*d_shared_throughput - throughput > d_throughput_margin*throughput ||
+			   throughput - *d_shared_throughput > d_throughput_margin*throughput) {
+				*d_shared_throughput = throughput;
+			}
 		}
 		else {
 	                for(int i = 0; i < d_index; i++)
